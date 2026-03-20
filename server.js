@@ -47,41 +47,20 @@ app.get("/api/catastral", async (req, res) => {
       return res.status(400).json({ error: "Falta referencia catastral" });
     }
 
-    // 1. Consultar catastro (coordenadas)
-    const urlCatastro = `https://ovc.catastro.meh.es/OVCServWeb/OVCWcfLibres/OVCCoordenadas.svc/json/Consulta_CPMRC?RC=${refcat}`;
+    const url = `https://ovc.catastro.meh.es/ovcservweb/OVCSWLocalizacionRC/OVCCallejero.aspx?ReferenciaCatastral=${refcat}`;
 
-    const catRes = await fetch(urlCatastro);
-    const catData = await catRes.json();
+    const response = await fetch(url);
+    const text = await response.text();
 
-    const coords = catData?.Consulta_CPMRCResult?.coordenadas?.coord;
-
-    if (!coords) {
-      return res.status(404).json({ error: "No se encontraron coordenadas" });
-    }
-
-    const lon = parseFloat(coords.x);
-    const lat = parseFloat(coords.y);
-
-    // 2. Crear bbox pequeño alrededor
-    const delta = 0.001;
-    const bbox = `${lon - delta},${lat - delta},${lon + delta},${lat + delta}`;
-
-    // 3. Consultar SIGPAC
-    const urlSigpac = `https://sigpac-hubcloud.es/ogcapi/collections/recintos/items?bbox=${bbox}&limit=50`;
-
-    const sigRes = await fetch(urlSigpac);
-    const sigData = await sigRes.json();
-
-    res.json({
-      coords: { lat, lon },
-      sigpac: sigData
-    });
+    // Devolvemos el XML tal cual (sin intentar parsearlo)
+    res.type("application/xml");
+    res.send(text);
 
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
-
 
 app.listen(PORT, () => {
   console.log("Servidor corriendo");
