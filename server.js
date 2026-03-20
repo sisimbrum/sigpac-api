@@ -50,27 +50,37 @@ app.get("/api/catastral", async (req, res) => {
     const url = `https://ovc.catastro.meh.es/ovcservweb/OVCCoordenadas.svc/json/Consulta_CPMRC?RC=${refcat}`;
 
     const response = await fetch(url);
-    const data = await response.json();
+    const text = await response.text();
+
+    // ⚠️ Detectar si viene HTML en lugar de JSON
+    if (text.trim().startsWith("<")) {
+      return res.status(500).json({
+        error: "El servicio del Catastro devolvió HTML en lugar de JSON"
+      });
+    }
+
+    const data = JSON.parse(text);
 
     const coords = data?.Consulta_CPMRCResult?.coordenadas?.coord;
 
     if (!coords) {
-      return res.status(404).json({ error: "No se encontraron coordenadas" });
+      return res.status(404).json({
+        error: "No se encontraron coordenadas"
+      });
     }
 
     const lat = parseFloat(coords.y);
     const lon = parseFloat(coords.x);
 
-    res.json({
-      lat,
-      lon
-    });
+    res.json({ lat, lon });
 
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
+
+
 app.listen(PORT, () => {
   console.log("Servidor corriendo");
 });
