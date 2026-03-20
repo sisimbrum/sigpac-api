@@ -52,10 +52,11 @@ app.get("/api/catastral", async (req, res) => {
     const response = await fetch(url);
     const text = await response.text();
 
-    // ⚠️ Detectar si viene HTML en lugar de JSON
-    if (text.trim().startsWith("<")) {
-      return res.status(500).json({
-        error: "El servicio del Catastro devolvió HTML en lugar de JSON"
+    // Si no es JSON válido → devolvemos error controlado
+    if (!text.trim().startsWith("{")) {
+      return res.status(502).json({
+        error: "El Catastro no respondió en formato JSON",
+        hint: "El servicio puede estar bloqueando peticiones"
       });
     }
 
@@ -79,7 +80,6 @@ app.get("/api/catastral", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
 
 app.listen(PORT, () => {
   console.log("Servidor corriendo");
