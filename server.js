@@ -9,77 +9,49 @@ const PORT = process.env.PORT || 3000;
 
 app.get("/api/recintos", async (req, res) => {
   try {
-    const { prov, mun, pol, par, rec } = req.query;
+    const { bbox, pol, par, rec } = req.query;
 
-    const url = `https://sigpac-hubcloud.es/ogcapi/collections/recintos/items?limit=200`;
+    // Caso 1: búsqueda por bbox (mapa)
+    if (bbox) {
+      const url = `https://sigpac-hubcloud.es/ogcapi/collections/recintos/items?bbox=${bbox}&limit=50`;
 
-    const response = await fetch(url);
-    const data = await response.json();
+      const response = await fetch(url);
+      const data = await response.json();
 
-    const filtrados = data.features.filter(f => {
-      const p = f.properties;
-
-      return (
-        (!prov || p.provincia == prov) &&
-        (!mun || p.municipio == mun) &&
-        (!pol || p.poligono == pol) &&
-        (!par || p.parcela == par) &&
-        (!rec || p.recinto == rec)
-      );
-    });
-
-    res.json({
-      type: "FeatureCollection",
-      features: filtrados
-    });
-
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-
-app.get("/api/catastral", async (req, res) => {
-  try {
-    const { refcat } = req.query;
-
-    if (!refcat) {
-      return res.status(400).json({ error: "Falta referencia catastral" });
+      return res.json(data);
     }
 
-    const url = `https://ovc.catastro.meh.es/ovcservweb/OVCCoordenadas.svc/json/Consulta_CPMRC?RC=${refcat}`;
+    // Caso 2: búsqueda por identificadores
+    if (pol && par) {
+      const url = `https://sigpac-hubcloud.es/ogcapi/collections/recintos/items?limit=50`;
 
-    const response = await fetch(url);
-    const text = await response.text();
+      const response = await fetch(url);
+      const data = await response.json();
 
-    // Si no es JSON válido → devolvemos error controlado
-    if (!text.trim().startsWith("{")) {
-      return res.status(502).json({
-        error: "El Catastro no respondió en formato JSON",
-        hint: "El servicio puede estar bloqueando peticiones"
+      // filtrado simple en backend
+      const filtered = data.features.filter(f => {
+        const props = f.properties;
+        return (
+          props.poligono == pol &&
+          props.parcela == par &&
+          (rec ? props.recinto == rec : true)
+        );
+      });
+
+      return res.json({
+        type: "FeatureCollection",
+        features: filtered
       });
     }
 
-    const data = JSON.parse(text);
-
-    const coords = data?.Consulta_CPMRCResult?.coordenadas?.coord;
-
-    if (!coords) {
-      return res.status(404).json({
-        error: "No se encontraron coordenadas"
-      });
-    }
-
-    const lat = parseFloat(coords.y);
-    const lon = parseFloat(coords.x);
-
-    res.json({ lat, lon });
+    res.status(400).json({ error: "Parámetros insuficientes" });
 
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
+
 
 app.listen(PORT, () => {
   console.log("Servidor corriendo");
