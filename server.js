@@ -2,49 +2,25 @@ import express from "express";
 import fetch from "node-fetch";
 import cors from "cors";
 
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+
 const app = express();
 app.use(cors());
 
-const PORT = process.env.PORT || 3000;
-
 app.get("/api/recintos", async (req, res) => {
   try {
-    const { bbox, pol, par, rec } = req.query;
+    const { bbox } = req.query;
 
-    // Caso 1: búsqueda por bbox (mapa)
-    if (bbox) {
-      const url = `https://sigpac-hubcloud.es/ogcapi/collections/recintos/items?bbox=${bbox}&limit=50`;
-
-      const response = await fetch(url);
-      const data = await response.json();
-
-      return res.json(data);
+    if (!bbox) {
+      return res.status(400).json({ error: "Falta bbox" });
     }
 
-    // Caso 2: búsqueda por identificadores
-    if (pol && par) {
-      const url = `https://sigpac-hubcloud.es/ogcapi/collections/recintos/items?limit=50`;
+    const url = `https://sigpac-hubcloud.es/ogcapi/collections/recintos/items?bbox=${bbox}&limit=50`;
 
-      const response = await fetch(url);
-      const data = await response.json();
+    const response = await fetch(url);
+    const data = await response.json();
 
-      // filtrado simple en backend
-      const filtered = data.features.filter(f => {
-        const props = f.properties;
-        return (
-          props.poligono == pol &&
-          props.parcela == par &&
-          (rec ? props.recinto == rec : true)
-        );
-      });
-
-      return res.json({
-        type: "FeatureCollection",
-        features: filtered
-      });
-    }
-
-    res.status(400).json({ error: "Parámetros insuficientes" });
+    res.json(data);
 
   } catch (err) {
     console.error(err);
@@ -52,7 +28,6 @@ app.get("/api/recintos", async (req, res) => {
   }
 });
 
-
-app.listen(PORT, () => {
+app.listen(3000, () => {
   console.log("Servidor corriendo");
 });
